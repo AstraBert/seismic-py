@@ -1,0 +1,5 @@
+format = "uv run ruff format"
+format-check = "uv run ruff format --check"
+lint = "uv run ruff check --fix"
+lint-check = "uv run ruff check"
+ty = "uv run ty check src/"
