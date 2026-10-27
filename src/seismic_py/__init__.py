@@ -204,7 +204,7 @@ def grip_search(
     results = {}
     for q in queries:
         result = ggrip_search(
-            index, quer[q]["vector"], ef, use_seeds, use_sketches, entrypoint_t
+            index, quer[q]["vector"], ef, use_seeds, use_sketches, k, entrypoint_t
         )
         results[q] = result
     with open(output, "w") as f:
