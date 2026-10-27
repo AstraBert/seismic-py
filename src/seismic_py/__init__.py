@@ -7,6 +7,8 @@ import msgpack
 import typer
 
 from .data import Entry, load_data, make_fake_data
+from .mini_grip import DEFAULT_D, DEFAULT_L, GripIndex, build_index
+from .mini_grip import grip_search as ggrip_search
 from .mini_seismic import (
     PostingLists,
     build_posting_lists,
@@ -142,9 +144,78 @@ def synth(
         f.writelines([json.dumps(d) + "\n" for d in queries])
 
 
+@app.command(name="grip-build", help="Build a grip index")
+def grip_build(
+    documents_path: Annotated[
+        str,
+        typer.Argument(
+            help='Path to the JSONL file containing documents in the format of {"id": int, "content": string, "vector": {"<token>": float}}'
+        ),
+    ],
+    graph_d: Annotated[int, typer.Option("-d", "--graph-d")] = DEFAULT_D,
+    seed_l: Annotated[int, typer.Option("-l", "--seed-l")] = DEFAULT_L,
+    sketch_r: Annotated[int, typer.Option("-r", "--sketch-r")] = 8,
+    output: Annotated[
+        str,
+        typer.Option(
+            "--output",
+            help="File where to store the grip index",
+        ),
+    ] = "index.grip",
+) -> None:
+    index = build_index(documents_path, graph_d, seed_l, sketch_r)
+    cont = msgpack.packb(index)
+    if cont is None:
+        raise RuntimeError("Could not pack index in bytes")
+    with open(output, "wb") as o:
+        o.write(cont)
+
+
+@app.command(name="grip-search", help="Build a grip index")
+def grip_search(
+    index_path: Annotated[
+        str,
+        typer.Argument(help="Path to the file containing the grip index"),
+    ],
+    queries_path: Annotated[
+        str,
+        typer.Option("-q", "--queries", help="Path to the file containing the queries"),
+    ],
+    queries: Annotated[
+        list[int], typer.Option("--query-index", help="Query indices to use for search")
+    ],
+    ef: Annotated[int, typer.Option("--ef")],
+    k: Annotated[int, typer.Option("--top-k")] = 10,
+    use_seeds: Annotated[bool, typer.Option("--use-seeds")] = False,
+    use_sketches: Annotated[bool, typer.Option("--use-sketches")] = False,
+    entrypoint_t: Annotated[int, typer.Option("--top-k")] = 10,
+    output: Annotated[
+        str,
+        typer.Option(
+            "--output",
+            help="File where to store the search output",
+        ),
+    ] = "output.json",
+) -> None:
+    with open(index_path, "rb") as f:
+        content = f.read()
+    index: GripIndex = msgpack.unpackb(content)
+    quer, _ = load_data(queries_path)
+    results = {}
+    for q in queries:
+        result = ggrip_search(
+            index, quer[q]["vector"], ef, use_seeds, use_sketches, entrypoint_t
+        )
+        results[q] = result
+    with open(output, "w") as f:
+        json.dump(results, f)
+
+
 @app.command(name="search", help="Search the index with a query")
 def search(
-    index_file: Annotated[str, typer.Argument(help="File where to load the index from")],
+    index_file: Annotated[
+        str, typer.Argument(help="File where to load the index from")
+    ],
     queries_file: Annotated[
         str, typer.Argument(help="File where to load the queries from")
     ],

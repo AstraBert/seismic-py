@@ -13,7 +13,7 @@ wheels/
 index.bin
 output.json
 output/
-guide.md
+guide*.md
 toy_dataset/
 
 # caches
