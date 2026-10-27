@@ -182,9 +182,9 @@ def grip_search(
         typer.Option("-q", "--queries", help="Path to the file containing the queries"),
     ],
     queries: Annotated[
-        list[int], typer.Option("--query-index", help="Query indices to use for search")
-    ],
-    ef: Annotated[int, typer.Option("--ef")],
+        list[int] | None, typer.Option("--query-index", help="Query indices to use for search")
+    ] = None,
+    ef: Annotated[int, typer.Option("--ef")] = 10,
     k: Annotated[int, typer.Option("--top-k")] = 10,
     use_seeds: Annotated[bool, typer.Option("--use-seeds")] = False,
     use_sketches: Annotated[bool, typer.Option("--use-sketches")] = False,
@@ -199,16 +199,17 @@ def grip_search(
 ) -> None:
     with open(index_path, "rb") as f:
         content = f.read()
-    index: GripIndex = msgpack.unpackb(content)
+    index: GripIndex = msgpack.unpackb(content, strict_map_key=False)
     quer, _ = load_data(queries_path)
     results = {}
+    queries = [k for k in quer] if queries is None else queries
     for q in queries:
         result = ggrip_search(
             index, quer[q]["vector"], ef, use_seeds, use_sketches, k, entrypoint_t
         )
         results[q] = result
     with open(output, "w") as f:
-        json.dump(results, f)
+        json.dump(results, f, indent=2)
 
 
 @app.command(name="search", help="Search the index with a query")
